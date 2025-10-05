@@ -11,13 +11,12 @@ export default async function handler(req, res) {
     for await (const c of req) chunks.push(c);
     const raw = Buffer.concat(chunks).toString("utf8");
     console.log("ECHO HIT", req.method, req.url);
-    console.log("ECHO HEADERS", JSON.stringify(req.headers));
     console.log("ECHO BODY", raw);
     res.statusCode = 200;
     res.end("OK");
   } catch (e) {
     console.error("ECHO ERROR", e);
-    res.statusCode = 200; // vedno 200 za Telegram
+    res.statusCode = 200; // Telegram expects 200
     res.end("OK");
   }
 }
