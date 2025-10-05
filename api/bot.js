@@ -66,17 +66,12 @@ bot.command("top", async (ctx) => {
 
 // ---- Edge runtime handler (std/http) ----
 export const config = { runtime: "edge" };
-
 const handleUpdate = webhookCallback(bot, "std/http");
 
 export default async function handler(req) {
-  try {
-    const url = new URL(req.url);
-    if (url.searchParams.get("secret") !== SECRET) {
-      return new Response("Forbidden", { status: 403 });
-    }
-    return await handleUpdate(req);
-  } catch (e) {
+  // začasno brez secret preverjanja
+  return handleUpdate(req);
+} catch (e) {
     console.error("BOT ERROR:", e);
     return new Response("Internal Error", { status: 500 });
   }
