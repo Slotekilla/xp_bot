@@ -1,5 +1,5 @@
-// api/bot.js — MINIMAL NODE + LOGS
-import { Bot, webhookCallback } from "grammy";
+// api/bot.js — MINIMAL NODE WEBHOOK (manual body read)
+import { Bot } from "grammy";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) throw new Error("Missing TELEGRAM_BOT_TOKEN");
@@ -10,26 +10,32 @@ const bot = new Bot(token);
 bot.command("start", (ctx) => ctx.reply("Hi! Send /ping"));
 bot.command("ping",  (ctx) => ctx.reply("pong 🐸"));
 
-// Node serverless handler with GET health and request logs
+// Node serverless handler with GET health and manual JSON parsing
 export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
-  // quick health for GET
+  // Health for browser GET
   if (req.method !== "POST") {
-    console.log("HEALTH CHECK", req.method, req.url);
     res.statusCode = 200;
     return res.end("OK");
   }
 
-  // log that Telegram hit the webhook
-  console.log("WEBHOOK HIT", req.method, req.url);
-
-  const handle = webhookCallback(bot, "express");
   try {
-    return handle(req, res);
+    // Manually read raw body (Vercel-safe)
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const body = Buffer.concat(chunks).toString("utf8");
+    const update = body ? JSON.parse(body) : {};
+
+    await bot.handleUpdate(update);
+
+    res.statusCode = 200;
+    res.end("OK");
   } catch (e) {
-    console.error("BOT ERROR", e);
-    res.statusCode = 500;
-    res.end("Internal Error");
+    console.error("WEBHOOK ERROR:", e);
+    // Telegram expects 200 even if we log an error
+    res.statusCode = 200;
+    res.end("OK");
   }
 }
+
