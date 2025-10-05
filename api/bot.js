@@ -1,26 +1,24 @@
-// api/bot.js
 import { Bot, webhookCallback } from "grammy";
 import { Redis } from "@upstash/redis";
 
-// ===== ENV (morajo biti nastavljeni v Vercel: Production) =====
+// ===== ENV (nastavi v Vercel Production) =====
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-if (!token) throw new Error("Missing env: TELEGRAM_BOT_TOKEN");
-if (!redisUrl) throw new Error("Missing env: UPSTASH_REDIS_REST_URL");
-if (!redisToken) throw new Error("Missing env: UPSTASH_REDIS_REST_TOKEN");
+if (!token) throw new Error("Missing TELEGRAM_BOT_TOKEN");
+if (!redisUrl) throw new Error("Missing UPSTASH_REDIS_REST_URL");
+if (!redisToken) throw new Error("Missing UPSTASH_REDIS_REST_TOKEN");
 
-// Nastavitve XP (po želji spremeni v Vercel envih)
 const DAILY_XP_CAP = parseInt(process.env.DAILY_XP_CAP || "50", 10);
 const XP_PER_MSG   = parseInt(process.env.XP_PER_MSG || "1", 10);
 
-// ===== Init =====
 const redis = new Redis({ url: redisUrl, token: redisToken });
 const bot = new Bot(token);
+
 const today = () => new Date().toISOString().slice(0, 10);
 
-// ===== XP podeljevanje za vsako sporočilo v skupini =====
+// ===== XP podeljevanje =====
 bot.on("message", async (ctx) => {
   const chat = ctx.chat, user = ctx.from;
   if (!chat || !user) return;
@@ -35,7 +33,7 @@ bot.on("message", async (ctx) => {
 
   const p = redis.pipeline();
   p.incr(cntKey);
-  p.expire(cntKey, 60 * 60 * 48); // 48h
+  p.expire(cntKey, 60 * 60 * 48);
   p.zincrby(totalKey, XP_PER_MSG, String(user.id));
   p.zincrby(dayKey,   XP_PER_MSG, String(user.id));
   await p.exec();
@@ -52,7 +50,8 @@ bot.command("me", async (ctx) => {
 });
 
 bot.command("top", async (ctx) => {
-  const chat = ctx.chat; if (!chat) return;
+  const chat = ctx.chat;
+  if (!chat) return;
   const top = await redis.zrevrange(`xp:zset:${chat.id}:total`, 0, 9, { withScores: true });
   if (!top || top.length === 0) return ctx.reply("No XP yet.");
   let out = "🏆 Top Frogs (All-time):\n";
@@ -64,15 +63,13 @@ bot.command("top", async (ctx) => {
   await ctx.reply(out, { parse_mode: "HTML" });
 });
 
-// ===== Vercel Edge handler (brez secret checka) =====
+// ===== Edge handler =====
 export const config = { runtime: "edge" };
 const handleUpdate = webhookCallback(bot, "std/http");
 
-export default async function handler(req) {
-  try {
-    return await handleUpdate(req);
-  } catch (e) {
-    console.error("BOT ERROR:", e);
+export default function handler(req) {
+  return handleUpdate(req).catch((err) => {
+    console.error("BOT ERROR:", err);
     return new Response("Internal Error", { status: 500 });
-  }
+  });
 }
