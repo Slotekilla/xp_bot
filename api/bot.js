@@ -1,7 +1,8 @@
+// api/bot.js  (Node runtime)
 import { Bot, webhookCallback } from "grammy";
 import { Redis } from "@upstash/redis";
 
-// ===== ENV (Production na Vercel) =====
+// ===== ENV =====
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -13,11 +14,12 @@ if (!redisToken) throw new Error("Missing UPSTASH_REDIS_REST_TOKEN");
 const DAILY_XP_CAP = parseInt(process.env.DAILY_XP_CAP || "50", 10);
 const XP_PER_MSG   = parseInt(process.env.XP_PER_MSG || "1", 10);
 
+// ===== init =====
 const redis = new Redis({ url: redisUrl, token: redisToken });
 const bot = new Bot(token);
 const today = () => new Date().toISOString().slice(0, 10);
 
-// ===== XP podeljevanje =====
+// ===== XP awarding =====
 bot.on("message", async (ctx) => {
   const chat = ctx.chat, user = ctx.from;
   if (!chat || !user) return;
@@ -38,7 +40,7 @@ bot.on("message", async (ctx) => {
   await p.exec();
 });
 
-// ===== Ukazi =====
+// ===== commands =====
 bot.command("ping", (ctx) => ctx.reply("pong 🐸"));
 
 bot.command("me", async (ctx) => {
@@ -56,22 +58,20 @@ bot.command("top", async (ctx) => {
   for (let i = 0; i < top.length; i += 2) {
     const uid = top[i];
     const score = top[i + 1];
-    out += `${i/2 + 1}. <a href="tg://user?id=${uid}">frog</a> — ${score} XP\n`;
+    out += `${i / 2 + 1}. <a href="tg://user?id=${uid}">frog</a> — ${score} XP\n`;
   }
   await ctx.reply(out, { parse_mode: "HTML" });
 });
 
-// ===== Edge handler (GET=health, POST=Telegram) =====
-export const config = { runtime: "edge" };
-const handleUpdate = webhookCallback(bot, "std/http");
+// ===== Node serverless handler (Express-style) =====
+export const config = { runtime: "nodejs" };
 
-export default function handler(req) {
-  // Telegram pošilja POST; GET naj vrne 200 da ne crasha
+// Telegram bo pošiljal POST; GET naj vrne 200 (health)
+export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return new Response("OK", { status: 200 });
+    res.statusCode = 200;
+    return res.end("OK");
   }
-  return handleUpdate(req).catch((err) => {
-    console.error("BOT ERROR:", err);
-    return new Response("Internal Error", { status: 500 });
-  });
+  const handle = webhookCallback(bot, "express");
+  return handle(req, res);
 }
