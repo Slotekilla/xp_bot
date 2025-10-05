@@ -1,7 +1,7 @@
 import { Bot, webhookCallback } from "grammy";
 import { Redis } from "@upstash/redis";
 
-// ===== ENV (nastavi v Vercel Production) =====
+// ===== ENV (Production na Vercel) =====
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -15,7 +15,6 @@ const XP_PER_MSG   = parseInt(process.env.XP_PER_MSG || "1", 10);
 
 const redis = new Redis({ url: redisUrl, token: redisToken });
 const bot = new Bot(token);
-
 const today = () => new Date().toISOString().slice(0, 10);
 
 // ===== XP podeljevanje =====
@@ -50,8 +49,7 @@ bot.command("me", async (ctx) => {
 });
 
 bot.command("top", async (ctx) => {
-  const chat = ctx.chat;
-  if (!chat) return;
+  const chat = ctx.chat; if (!chat) return;
   const top = await redis.zrevrange(`xp:zset:${chat.id}:total`, 0, 9, { withScores: true });
   if (!top || top.length === 0) return ctx.reply("No XP yet.");
   let out = "🏆 Top Frogs (All-time):\n";
@@ -63,11 +61,15 @@ bot.command("top", async (ctx) => {
   await ctx.reply(out, { parse_mode: "HTML" });
 });
 
-// ===== Edge handler =====
+// ===== Edge handler (GET=health, POST=Telegram) =====
 export const config = { runtime: "edge" };
 const handleUpdate = webhookCallback(bot, "std/http");
 
 export default function handler(req) {
+  // Telegram pošilja POST; GET naj vrne 200 da ne crasha
+  if (req.method !== "POST") {
+    return new Response("OK", { status: 200 });
+  }
   return handleUpdate(req).catch((err) => {
     console.error("BOT ERROR:", err);
     return new Response("Internal Error", { status: 500 });
