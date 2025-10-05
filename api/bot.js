@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     res.end("OK");
   } catch (e) {
     console.error("BOT WEBHOOK ERROR:", e);
-    res.statusCode = 200; // always 200 for Telegram
+    res.statusCode = 200;
     res.end("OK");
   }
 }
