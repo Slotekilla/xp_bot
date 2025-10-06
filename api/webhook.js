@@ -1,4 +1,4 @@
-// api/bot.js — WEBHOOK HANDLER
+// api/webhook.js — WEBHOOK HANDLER
 import { Bot } from "grammy";
 import { Redis } from "@upstash/redis";
 
@@ -41,7 +41,6 @@ export default async function handler(req, res) {
   // Verify webhook secret
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
   const path = requestUrl.pathname;
-  const expectedPath = `/api/webhook/${webhookSecret}`;
   
   if (!path.endsWith(webhookSecret)) {
     console.error("Invalid webhook secret");
