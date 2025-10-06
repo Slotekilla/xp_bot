@@ -4,11 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "webhook": "node api/bot.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "grammy": "^1.24.0",
-    "@upstash/redis": "^1.28.3"
+    "@upstash/redis": "^1.28.3",
+    "dotenv": "^16.3.1"
   }
 }
